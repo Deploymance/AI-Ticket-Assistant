@@ -1,0 +1,9 @@
+# License cache
+.license_cache
+
+# IonCube encoded files backup
+*.php.bak
+
+# Development files
+.DS_Store
+Thumbs.db
