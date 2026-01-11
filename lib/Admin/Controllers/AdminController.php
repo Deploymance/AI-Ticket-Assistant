@@ -4,7 +4,7 @@ namespace WHMCS\Module\Addon\AITicketAssistant\Admin\Controllers;
 
 use Exception;
 use WHMCS\Database\Capsule;
-use WHMCS\Module\Addon\AITicketAssistant\Services\GeminiService;
+use WHMCS\Module\Addon\AITicketAssistant\Services\AIService;
 
 /**
  * Admin Area Controller
@@ -185,8 +185,8 @@ class AdminController
                 throw new Exception('Addon configuration not found');
             }
 
-            $geminiService = new GeminiService($addonConfig);
-            $result = $geminiService->generateReply($ticketId, $adminInstructions, $extraContext, $tone);
+            $aiService = new AIService($addonConfig);
+            $result = $aiService->generateReply($ticketId, $adminInstructions, $extraContext, $tone);
 
             logActivity('[AI Ticket Assistant] Reply generated successfully (length: ' . strlen($result['reply']) . ' chars)');
 

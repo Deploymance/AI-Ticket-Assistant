@@ -6,12 +6,12 @@ use Exception;
 use WHMCS\Support\Ticket;
 
 /**
- * Gemini AI Service for Ticket Response Generation
+ * AI Service for Ticket Response Generation
  * 
  * All requests are routed through the Deploymance API for license validation.
- * Your Gemini API key is forwarded securely to generate responses.
+ * Gemini API key is forwarded securely to generate AI responses.
  */
-class GeminiService
+class AIService
 {
     private string $licenseKey;
     private string $geminiApiKey;

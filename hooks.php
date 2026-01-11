@@ -321,7 +321,7 @@ HTML;
  */
 add_hook('AdminAreaPage', 1, function($vars) {
     if (isset($_GET['module']) && $_GET['module'] === 'ai_ticket_assistant' && isset($_GET['action']) && $_GET['action'] === 'generate_reply') {
-        require_once __DIR__ . '/lib/Services/GeminiService.php';
+        require_once __DIR__ . '/lib/Services/AIService.php';
         require_once __DIR__ . '/lib/Admin/Controllers/AdminController.php';
         
         $controller = new \WHMCS\Module\Addon\AITicketAssistant\Admin\Controllers\AdminController();
