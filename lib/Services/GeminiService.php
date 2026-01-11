@@ -7,32 +7,75 @@ use WHMCS\Support\Ticket;
 
 /**
  * Gemini AI Service for Ticket Response Generation
+ * 
+ * All requests are routed through the Deploymance API for license validation.
+ * Your Gemini API key is forwarded securely to generate responses.
  */
 class GeminiService
 {
-    private string $apiKey;
-    private string $apiEndpoint;
+    private string $licenseKey;
+    private string $geminiApiKey;
+    private string $apiEndpoint = 'https://deploymance.com/api/addon/ai-response';
     private array $settings;
+    private string $domain;
 
     public function __construct(array $addonConfig = [])
     {
-        // Get API key from addon configuration
-        $this->apiKey = $addonConfig['gemini_api_key'] ?? '';
+        // Get license key from addon configuration
+        $this->licenseKey = $addonConfig['license_key'] ?? '';
         
-        if (empty($this->apiKey)) {
+        if (empty($this->licenseKey)) {
+            throw new Exception('Deploymance License Key is not configured. Please configure it in the addon settings.');
+        }
+
+        // Get Gemini API key from addon configuration
+        $this->geminiApiKey = $addonConfig['gemini_api_key'] ?? '';
+        
+        if (empty($this->geminiApiKey)) {
             throw new Exception('Gemini API Key is not configured. Please configure it in the addon settings.');
         }
 
-        // Get model from configuration (default to gemini-2.5-flash)
-        $model = $addonConfig['gemini_model'] ?? 'gemini-2.5-flash';
-        $this->apiEndpoint = 'https://generativelanguage.googleapis.com/v1/models/' . $model . ':generateContent';
+        // Get current domain for license validation
+        $this->domain = $this->getCurrentDomain();
 
         // Load settings
         $this->settings = [
             'max_output_tokens' => (int) ($addonConfig['max_output_tokens'] ?? 4096),
             'response_language' => $addonConfig['response_language'] ?? 'auto',
-            'model' => $model,
+            'model' => $addonConfig['gemini_model'] ?? 'gemini-2.5-flash',
         ];
+    }
+
+    /**
+     * Get the current WHMCS domain
+     */
+    private function getCurrentDomain(): string
+    {
+        // Try to get from WHMCS config
+        if (function_exists('WHMCS\Config\Setting::getValue')) {
+            try {
+                $systemUrl = \WHMCS\Config\Setting::getValue('SystemURL');
+                if ($systemUrl) {
+                    $parsed = parse_url($systemUrl);
+                    if (isset($parsed['host'])) {
+                        return $parsed['host'];
+                    }
+                }
+            } catch (Exception $e) {
+                // Fall through to alternative methods
+            }
+        }
+
+        // Fallback to server variables
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            return $_SERVER['HTTP_HOST'];
+        }
+
+        if (!empty($_SERVER['SERVER_NAME'])) {
+            return $_SERVER['SERVER_NAME'];
+        }
+
+        throw new Exception('Could not determine WHMCS domain for license validation.');
     }
 
     /**
@@ -55,11 +98,11 @@ class GeminiService
         $context['desired_tone'] = $tone;
         $context['language'] = $this->settings['response_language'];
 
-        // Generate reply using Gemini
+        // Generate reply using Deploymance API (which validates license and forwards to Gemini)
         $prompt = $this->buildReplyPrompt($context);
 
-        logActivity('[AI Ticket Assistant] Calling Gemini API (' . $this->settings['model'] . ') for ticket #' . $ticketId);
-        $response = $this->callGeminiApi($prompt);
+        logActivity('[AI Ticket Assistant] Calling Deploymance API for ticket #' . $ticketId);
+        $response = $this->callDeploymanceApi($prompt);
 
         $reply = $this->parseReplyResponse($response);
 
@@ -207,18 +250,16 @@ class GeminiService
     }
 
     /**
-     * Call Gemini API
+     * Call Deploymance API (validates license, forwards to Gemini)
      */
-    private function callGeminiApi(string $prompt): array
+    private function callDeploymanceApi(string $prompt): array
     {
         $requestData = [
-            'contents' => [
-                [
-                    'parts' => [
-                        ['text' => $prompt],
-                    ],
-                ],
-            ],
+            'licenseKey' => $this->licenseKey,
+            'domain' => $this->domain,
+            'geminiApiKey' => $this->geminiApiKey,
+            'geminiModel' => $this->settings['model'],
+            'prompt' => $prompt,
             'generationConfig' => [
                 'temperature' => 0.7,
                 'maxOutputTokens' => $this->settings['max_output_tokens'],
@@ -227,16 +268,16 @@ class GeminiService
             ],
         ];
 
-        logActivity('[AI Ticket Assistant] Sending request to Gemini API (maxTokens: ' . $this->settings['max_output_tokens'] . ')');
+        logActivity('[AI Ticket Assistant] Sending request to Deploymance API (model: ' . $this->settings['model'] . ', maxTokens: ' . $this->settings['max_output_tokens'] . ')');
 
-        $ch = curl_init($this->apiEndpoint . '?key=' . $this->apiKey);
+        $ch = curl_init($this->apiEndpoint);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestData));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
         ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 45);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -246,18 +287,30 @@ class GeminiService
         logActivity('[AI Ticket Assistant] Response received. HTTP Code: ' . $httpCode . ', Response size: ' . strlen($response) . ' bytes');
 
         if ($error) {
-            throw new Exception('cURL error: ' . $error);
-        }
-
-        if ($httpCode !== 200) {
-            logActivity('[AI Ticket Assistant] API Error: ' . substr($response, 0, 500));
-            throw new Exception('Gemini API returned HTTP ' . $httpCode . ': ' . substr($response, 0, 200));
+            throw new Exception('Connection error: ' . $error);
         }
 
         $decoded = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Failed to decode Gemini API response: ' . json_last_error_msg());
+            throw new Exception('Failed to decode API response: ' . json_last_error_msg());
+        }
+
+        // Handle license errors
+        if ($httpCode === 401) {
+            $errorMsg = $decoded['error'] ?? 'License validation failed';
+            throw new Exception('License Error: ' . $errorMsg . '. Please check your license key at deploymance.com/account');
+        }
+
+        if ($httpCode !== 200) {
+            $errorMsg = $decoded['error'] ?? 'Unknown error';
+            $details = $decoded['details'] ?? '';
+            logActivity('[AI Ticket Assistant] API Error: ' . $errorMsg . ' ' . $details);
+            throw new Exception('API Error: ' . $errorMsg);
+        }
+
+        if (!isset($decoded['success']) || !$decoded['success']) {
+            throw new Exception('API returned unsuccessful response');
         }
 
         return $decoded;
@@ -270,7 +323,7 @@ class GeminiService
     {
         if (!isset($response['candidates'][0]['content']['parts'][0]['text'])) {
             logActivity('[AI Ticket Assistant] Invalid response structure: ' . json_encode($response));
-            throw new Exception('Invalid response structure from Gemini API');
+            throw new Exception('Invalid response structure from API');
         }
 
         $finishReason = $response['candidates'][0]['finishReason'] ?? 'UNKNOWN';

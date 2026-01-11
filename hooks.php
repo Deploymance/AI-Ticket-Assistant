@@ -43,8 +43,8 @@ add_hook('AdminAreaHeadOutput', 1, function($vars) {
         return '';
     }
     
-    // Check if API key is configured
-    if (empty($addonSettings['gemini_api_key'] ?? '')) {
+    // Check if license key and API key are configured
+    if (empty($addonSettings['license_key'] ?? '') || empty($addonSettings['gemini_api_key'] ?? '')) {
         return '';
     }
     

@@ -18,8 +18,9 @@ class AdminController
     {
         $moduleLink = $vars['modulelink'];
         $version = $vars['version'];
+        $licenseKey = $vars['license_key'] ?? '';
         $apiKey = $vars['gemini_api_key'] ?? '';
-        $geminiModel = $vars['gemini_model'] ?? 'gemini-2.0-flash-exp';
+        $geminiModel = $vars['gemini_model'] ?? 'gemini-2.5-flash';
         $maxInstructions = $vars['max_instructions_chars'] ?? '1000';
         $maxContext = $vars['max_context_chars'] ?? '1000';
         $language = $vars['response_language'] ?? 'auto';
@@ -29,10 +30,10 @@ class AdminController
 
         // Model display names
         $modelNames = [
-            'gemini-2.0-flash-exp' => 'Gemini 2.0 Flash (Experimental)',
-            'gemini-1.5-flash' => 'Gemini 1.5 Flash',
-            'gemini-1.5-flash-8b' => 'Gemini 1.5 Flash 8B',
-            'gemini-1.5-pro' => 'Gemini 1.5 Pro',
+            'gemini-2.5-flash' => 'Gemini 2.5 Flash (Recommended)',
+            'gemini-2.5-pro' => 'Gemini 2.5 Pro',
+            'gemini-2.0-flash' => 'Gemini 2.0 Flash',
+            'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite',
         ];
 
         echo '<div class="container-fluid">';
@@ -43,10 +44,23 @@ class AdminController
         echo '<div class="panel-heading"><h3 class="panel-title">Status & Configuration</h3></div>';
         echo '<div class="panel-body">';
         
-        if (empty($apiKey)) {
+        $hasLicense = !empty($licenseKey);
+        $hasApiKey = !empty($apiKey);
+        
+        if (!$hasLicense && !$hasApiKey) {
+            echo '<div class="alert alert-danger">';
+            echo '<i class="fa fa-exclamation-circle"></i> <strong>Configuration Required</strong><br>';
+            echo 'Please configure your Deploymance License Key and Gemini API Key in the addon settings.';
+            echo '</div>';
+        } elseif (!$hasLicense) {
             echo '<div class="alert alert-warning">';
-            echo '<i class="fa fa-exclamation-triangle"></i> <strong>API Key Not Configured</strong><br>';
-            echo 'Please configure your Gemini API key in the addon configuration to enable AI features.';
+            echo '<i class="fa fa-exclamation-triangle"></i> <strong>License Key Required</strong><br>';
+            echo 'Please add your Deploymance license key. <a href="https://deploymance.com/addons" target="_blank">Get a license</a>';
+            echo '</div>';
+        } elseif (!$hasApiKey) {
+            echo '<div class="alert alert-warning">';
+            echo '<i class="fa fa-exclamation-triangle"></i> <strong>Gemini API Key Required</strong><br>';
+            echo 'Please add your Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>';
             echo '</div>';
         } else {
             echo '<div class="alert alert-success">';
@@ -57,7 +71,8 @@ class AdminController
         
         echo '<table class="table table-striped">';
         echo '<tr><th width="30%">Setting</th><th>Value</th></tr>';
-        echo '<tr><td>API Key Status</td><td>' . (!empty($apiKey) ? '<span class="label label-success">Configured</span>' : '<span class="label label-danger">Not Configured</span>') . '</td></tr>';
+        echo '<tr><td>License Key</td><td>' . ($hasLicense ? '<span class="label label-success">Configured</span> <a href="https://deploymance.com/account" target="_blank" class="btn btn-xs btn-default">Manage</a>' : '<span class="label label-danger">Not Configured</span> <a href="https://deploymance.com/addons" target="_blank" class="btn btn-xs btn-warning">Get License</a>') . '</td></tr>';
+        echo '<tr><td>Gemini API Key</td><td>' . ($hasApiKey ? '<span class="label label-success">Configured</span>' : '<span class="label label-danger">Not Configured</span>') . '</td></tr>';
         echo '<tr><td>Gemini Model</td><td><strong>' . htmlspecialchars($modelNames[$geminiModel] ?? $geminiModel) . '</strong></td></tr>';
         echo '<tr><td>Max Instructions Characters</td><td>' . htmlspecialchars($maxInstructions) . '</td></tr>';
         echo '<tr><td>Max Context Characters</td><td>' . htmlspecialchars($maxContext) . '</td></tr>';

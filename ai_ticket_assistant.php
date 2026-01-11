@@ -16,16 +16,23 @@ function ai_ticket_assistant_config(): array
 {
     return [
         'name' => 'AI Ticket Assistant',
-        'description' => 'AI-powered ticket response generation using Google Gemini API with customizable settings. Free and open source.',
-        'author' => 'astroom',
+        'description' => 'AI-powered ticket response generation using Google Gemini API with customizable settings.',
+        'author' => 'Deploymance',
         'language' => 'english',
-        'version' => '1.0.0',
+        'version' => '1.1.0',
         'fields' => [
+            'license_key' => [
+                'FriendlyName' => 'License Key',
+                'Type' => 'password',
+                'Size' => '50',
+                'Description' => 'Enter your Deploymance license key. Get one at <a href="https://deploymance.com/addons" target="_blank">deploymance.com</a>',
+                'Required' => true,
+            ],
             'gemini_api_key' => [
                 'FriendlyName' => 'Gemini API Key',
                 'Type' => 'password',
                 'Size' => '50',
-                'Description' => 'Enter your Google Gemini API key',
+                'Description' => 'Enter your Google Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>',
                 'Required' => true,
             ],
             'gemini_model' => [
