@@ -15,7 +15,7 @@ class GeminiService
 {
     private string $licenseKey;
     private string $geminiApiKey;
-    private string $apiEndpoint = 'https://deploymance.com/api/addon/ai-response';
+    private string $apiEndpoint;
     private array $settings;
     private string $domain;
 
@@ -33,6 +33,16 @@ class GeminiService
         
         if (empty($this->geminiApiKey)) {
             throw new Exception('Gemini API Key is not configured. Please configure it in the addon settings.');
+        }
+
+        // Set API endpoint (allow override for development/testing)
+        $apiUrlOverride = trim($addonConfig['api_url_override'] ?? '');
+        if (!empty($apiUrlOverride)) {
+            // Remove trailing slash and append endpoint path
+            $this->apiEndpoint = rtrim($apiUrlOverride, '/') . '/api/addon/ai-response';
+            logActivity('[AI Ticket Assistant] Using custom API URL: ' . $this->apiEndpoint);
+        } else {
+            $this->apiEndpoint = 'https://deploymance.com/api/addon/ai-response';
         }
 
         // Get current domain for license validation

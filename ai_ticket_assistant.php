@@ -28,6 +28,13 @@ function ai_ticket_assistant_config(): array
                 'Description' => 'Enter your Deploymance license key. Get one at <a href="https://deploymance.com/addons" target="_blank">deploymance.com</a>',
                 'Required' => true,
             ],
+            'api_url_override' => [
+                'FriendlyName' => 'API URL Override (Dev Only)',
+                'Type' => 'text',
+                'Size' => '50',
+                'Description' => 'Leave empty for production. For testing, enter your dev server URL (e.g., http://YOUR_IP:3001)',
+                'Default' => '',
+            ],
             'gemini_api_key' => [
                 'FriendlyName' => 'Gemini API Key',
                 'Type' => 'password',
