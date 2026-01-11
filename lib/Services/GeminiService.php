@@ -297,13 +297,27 @@ class GeminiService
         logActivity('[AI Ticket Assistant] Response received. HTTP Code: ' . $httpCode . ', Response size: ' . strlen($response) . ' bytes');
 
         if ($error) {
-            throw new Exception('Connection error: ' . $error);
+            logActivity('[AI Ticket Assistant] Connection error: ' . $error);
+            throw new Exception('Could not connect to Deploymance server. Please check your internet connection and try again.');
+        }
+
+        // Check for empty response or connection failure
+        if (empty($response) || $httpCode === 0) {
+            logActivity('[AI Ticket Assistant] Empty response or connection failed. HTTP Code: ' . $httpCode);
+            throw new Exception('Could not reach Deploymance server. The server may be temporarily unavailable. Please try again later.');
+        }
+
+        // Check if response is HTML (server error page) instead of JSON
+        if (str_starts_with(trim($response), '<') || str_starts_with(trim($response), '<!')) {
+            logActivity('[AI Ticket Assistant] Received HTML instead of JSON. HTTP Code: ' . $httpCode);
+            throw new Exception('Could not connect to Deploymance server. Please try again later or contact support if the issue persists.');
         }
 
         $decoded = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Failed to decode API response: ' . json_last_error_msg());
+            logActivity('[AI Ticket Assistant] JSON decode error: ' . json_last_error_msg() . '. Response: ' . substr($response, 0, 200));
+            throw new Exception('Unexpected response from Deploymance server. Please try again later.');
         }
 
         // Handle license errors
